@@ -1,38 +1,5 @@
 ---
 
-- name: Checking the Initial Ansible Hostname
-  tags: etchostsupdate
-  debug: var=ansible_hostname
-
-- name: Update the /etc/hosts file with WEBLOGIC Node Name
-  tags: etchostsupdate
-  become: yes
-  become_user: root
-  lineinfile:
-    dest: "/etc/hosts"
-    regexp: ".*\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
-    line: "{{ hostvars[item]['ansible_env'].SSH_CONNECTION.split(' ')[2] }}\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
-    state: present
-    backup: yes
-  register: etchostsupdate
-  when: inventory_hostname != "{{ item }}" or inventory_hostname == "{{ item }}"
-  with_items: "{{groups['launched']}}"
-
-- name:  Set hostname on both Machines
-  tags: etchostsupdate
-  become: yes
-  become_user: root
-  hostname: 
-    name: "{{ item.hostname }}"
-  when: "{{ item.host == inventory_hostname }}"
-  with_items:
-    - { hostname: "{{ hostnames[0] }}", host: "{{ groups['launched'][0] }}" } 
-    - { hostname: "{{ hostnames[1] }}", host: "{{ groups['launched'][1] }}" }
-
-- name: Making sure the hostname is updated as per the configuration
-  tags: etchostsupdate
-  debug: var=ansible_hostname
-
 # Enable this if you are running this Weblogic Creation in already running EC2 instances
 # - name: Update the /etc/hosts file with node name
 #   tags: etchostsupdate
@@ -47,21 +14,6 @@
 #   register: etchostsupdate
 #   when: inventory_hostname != "{{ item }}" or inventory_hostname == "{{ item }}"
 #   with_items: "{{groups['launched']}}"
-
-- name: Update the /etc/hosts file with WEBLOGIC Node Name
-  tags: etchostsupdate
-  become: yes
-  become_user: root
-  lineinfile:
-    dest: "/etc/hosts"
-    regexp: ".*\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
-    line: "{{ hostvars[item]['ansible_env'].SSH_CONNECTION.split(' ')[2] }}\t{{ hostvars[item]['ansible_hostname']}}\t{{ hostvars[item]['ansible_hostname']}}"
-    state: present
-    backup: yes
-  register: etchostsupdate
-  when: inventory_hostname != "{{ item }}" or inventory_hostname == "{{ item }}"
-  with_items: "{{groups['launched']}}"
-
 
 
 - name: install Necassary tools on the remote server
@@ -330,21 +282,17 @@
     - "/tmp/mwi.jar"
   when: "{{ inventory_hostname == groups['launched'][0] }}"
 
-- include: sshkey-exchange-t2.yaml 
+#- include: sshkey-exchange-t2.yaml 
 
-- name: Copy the file
-  tags: sync,packit
-  synchronize:
-    src: "{{ item }}"
-    dest: "{{ item }}"
-    mode: push
-  delegate_to: "{{ groups['launched'][0] }}"
-  register: syncfile
-  with_items:
-   - "/tmp/mwi.jar"
+
+- name: Copying mwi jar file into app
+  become: yes
+  become_user: weblogic
+  synchronize: src=/tmp/mwi.jar dest=/tmp  mode=push
   when: 
     - inventory_hostname == groups['launched'][1] and 
       ansible_hostname == hostnames[1]
+  
 
 - name: Run the unpack operation
   become: yes
